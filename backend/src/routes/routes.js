@@ -1,7 +1,6 @@
 const express = require("express");
 const clientes = require("./ClientesRoutes.js");
-
-const path = require("path");
+const calculo = require("./CalculoRoutes.js");
 
 const routes = (app) => {    
 
@@ -13,6 +12,7 @@ const routes = (app) => {
     app.use(express.json());
 
     app.use("/api/", clientes)    
+    app.use("/utils", calculo)
 
 };
 
