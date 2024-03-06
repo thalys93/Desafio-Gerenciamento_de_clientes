@@ -9,8 +9,18 @@ import { ToastContainer } from 'react-toastify';
 function Home() {
     const [clientInfo, setClientInfo] = useState<ClientesData[]>([])
     const [editMode, setEditMode] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [searchResult, setSearchResult] = useState<ClientesData[]>([])
 
     const handleAddCliente = () => { setEditMode(!editMode) }
+
+    const handleSearch = (query: string) => {
+        setSearchQuery(query)
+        const result = clientInfo.filter((client) => {
+            return client.nome.toLowerCase().includes(query.toLowerCase())        
+        })        
+        setSearchResult(result)        
+    }
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -26,6 +36,8 @@ function Home() {
 
         fetchAllData()
     }, [])
+
+    const displayedData = searchQuery.length > 0 ? searchResult : clientInfo
 
     return (
         <Container fluid>
@@ -48,17 +60,23 @@ function Home() {
                 </div>
                 <Col className='bg-stone-50 rounded-t-lg m-3'>
                     <div className="flex justify-center">
-                        <SearchBar />
+                        <SearchBar queryText={searchQuery} handleSearch={handleSearch}/>
                     </div>
                     <section>
                         <ClientsTable
-                            data={clientInfo}
+                            data={displayedData}
                             handleAdd={handleAddCliente}
                             editMode={editMode}
                         />
                     </section>
-                </Col>
+                </Col>                
             </Row>
+
+            <footer>
+                <div className='p-4 rounded-b-lg'>
+                    <p className='text-center text-stone-50 text-xs select-none'>Eco Tech Solutions © 2021 Todos os direitos reservados</p>
+                </div>
+            </footer>
         </Container>
     )
 }
