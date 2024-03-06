@@ -1,5 +1,5 @@
 import { Outlet } from 'react-router-dom'
-import '../public/tailwindglobals.css'
+import './global/tailwindglobals.css'
 import 'react-toastify/dist/ReactToastify.css';
 
 function Index() {
