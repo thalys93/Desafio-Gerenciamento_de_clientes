@@ -1,5 +1,5 @@
-import { Hash, List } from '@phosphor-icons/react';
-import { Form, FormControl, OverlayTrigger, Popover, Spinner, Table } from 'react-bootstrap';
+import { GlobeHemisphereEast, Hash, List, Truck } from '@phosphor-icons/react';
+import { Col, Container, Form, FormControl, ListGroup, Modal, OverlayTrigger, Popover, Row, Spinner, Table } from 'react-bootstrap';
 import { ClientesData, deleteClientes, postClientes, putClientes } from '../utils/api/clientes';
 import { Plus } from '@phosphor-icons/react';
 import { v4 as uuidv4 } from 'uuid';
@@ -8,6 +8,7 @@ import { useState } from 'react';
 
 import * as formik from 'formik';
 import * as yup from 'yup';
+import { sendCalculo } from '../utils/api/calculo';
 
 
 interface TableProps {
@@ -26,9 +27,14 @@ interface FormProps {
 
 function ClientsTable({ ...props }: TableProps) {
     const { Formik } = formik;
-
     const [selectedID, setSelectedID] = useState<string>('')
     const [alterID, setAlterID] = useState<string>('')
+    const [, setSelectedModal] = useState<string>('')
+    const [filteredData, setFilteredData] = useState<ClientesData[]>(props.data)
+    const [isLoading, setIsLoading] = useState(false)
+    const [editIndex, setEditIndex] = useState<number>(0);
+    const [showModal, setShowModal] = useState(false)
+    const [visitationOrder, setVisitationOrder] = useState<ClientesData[]>()
 
     const newClient = yup.object().shape({
         email: yup.string().email('Email inválido').required('Campo obrigatório'),
@@ -38,12 +44,7 @@ function ClientsTable({ ...props }: TableProps) {
         coordenada_y: yup.string().required('Campo obrigatório'),
     })
 
-    const [isLoading, setIsLoading] = useState(false)
-    const [editIndex, setEditIndex] = useState<number>(0);
-
-    const handleShowPopover = (id: string) => {
-        setAlterID(id)
-    }
+    const handleShowPopover = (id: string) => { setAlterID(id) }
 
     const handleSetEdit = (index: number) => {
         setEditIndex(index)
@@ -53,7 +54,6 @@ function ClientsTable({ ...props }: TableProps) {
     const handleSubmit = async (values: FormProps) => {
         const UUID = uuidv4()
         setIsLoading(true)
-
         const formValues = {
             cliente_id: UUID,
             email: values.email,
@@ -85,7 +85,6 @@ function ClientsTable({ ...props }: TableProps) {
             setIsLoading(false)
         }
     }
-
     const initialValues: FormProps = {
         email: '',
         nome: '',
@@ -93,7 +92,6 @@ function ClientsTable({ ...props }: TableProps) {
         coordenada_x: '',
         coordenada_y: ''
     }
-
     const handleUpdate = async (values: FormProps,) => {
         setIsLoading(true)
         try {
@@ -117,7 +115,6 @@ function ClientsTable({ ...props }: TableProps) {
             setIsLoading(false)
         }
     }
-
     const handleDelete = async (id: string) => {
         setIsLoading(true)
         try {
@@ -141,7 +138,6 @@ function ClientsTable({ ...props }: TableProps) {
             setIsLoading(false)
         }
     }
-
     const popoverOverlay = (
         <Popover>
             <Popover.Header as="h3">Atenção</Popover.Header>
@@ -156,8 +152,6 @@ function ClientsTable({ ...props }: TableProps) {
             </Popover.Body>
         </Popover>
     )
-
-
     const submissionForm = <Formik validationSchema={newClient} onSubmit={handleSubmit} initialValues={initialValues}>
         {({ handleSubmit, handleChange, values, touched, errors, handleReset }) => (
             <>
@@ -165,11 +159,11 @@ function ClientsTable({ ...props }: TableProps) {
                     <div className={'flex flex-row justify-center items-center h-[5rem] w-[2rem]'}>
                         <div className='flex flex-col justify-center items-center gap-2'>
                             <Form.Control
-                                type="text"                                
+                                type="text"
                                 value={"#"}
-                                plaintext                                           
-                                disabled                                                     
-                                className='border-[1px] border-stone-50 rounded p-2' />                      
+                                plaintext
+                                disabled
+                                className='border-[1px] border-stone-50 rounded p-2' />
                         </div>
                     </div>
                 </td>
@@ -280,7 +274,6 @@ function ClientsTable({ ...props }: TableProps) {
             </>
         )}
     </Formik>;
-
     const renderEditForm = (index: number) => {
         if (editIndex === index) {
             return editTableRow();
@@ -398,11 +391,165 @@ function ClientsTable({ ...props }: TableProps) {
         </Formik>
     )
 
+    const handleShowModal = (id: string) => {
+        const selectedClient = props.data.find((item) => item.cliente_id === id);
+
+        if (selectedClient) {
+            setFilteredData([selectedClient])
+            setShowModal(true)
+            setSelectedModal(id)
+        }
+    }
+
+    const handleCloseModal = () => {
+        setShowModal(false)
+        setSelectedModal('')
+        setVisitationOrder(undefined)
+    }
+
+
+
+    const handleSendCalc = async (x: string, y: string) => {
+        const convertToNumber = {
+            x: parseInt(x),
+            y: parseInt(y),
+        }
+
+        try {
+            const resPromise = new Promise((resolve, reject) => {
+                setIsLoading(true)
+                setTimeout(() => {
+                    sendCalculo(convertToNumber).then((res) => {
+                        if (res.status === 200) {
+                            setVisitationOrder(res.rotaOtimizada)                            
+                            resolve(res)
+                            setIsLoading(false)
+                        } else {
+                            throw new Error('Erro ao calcular rota')
+                        }
+                    }).catch(() => {
+                        reject(true)
+                    })
+                }, 2500)
+            })
+
+            toast.promise(
+                resPromise,
+                {
+                    pending: 'Calculando rota...',
+                    success: 'Rota calculada com sucesso!',
+                    error: 'Erro ao calcular rota. Tente novamente mais tarde.',
+                }
+            )
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    const ModalData = () => {
+        return (
+            <>
+                <Modal.Header className='flex justify-center items-center'>
+                    <Modal.Title className='text-lg select-none flex flex-row gap-1 items-center'>
+                        <GlobeHemisphereEast /> Calculo de Rotas
+                    </Modal.Title>
+                </Modal.Header>
+                <Modal.Body className={visitationOrder ? 'justify-center flex flex-col items-center mt-5' : 'justify-center flex flex-col items-center'}>
+                    <div className='flex flex-col mb-3'>
+                        <article>
+                            <h3 className='text-lg select-none'># Cliente: EcoTech Solutions</h3>
+                        </article>
+
+                        <div className='flex flex-row gap-2 items-center text-sm'>
+                            <span className='text-stone-400 font-light select-none'>ID:</span>
+                            <span className='text-stone-400 font-light select-none'>59db7640-1b1a-4fb6-a60a-28d36dfbcd94</span>
+                        </div>
+
+                        <div className='h-[1.5px] bg-stone-300 w-[50%] mt-2 mb-2'></div>
+
+                        <div className='flex flex-row gap-2 items-center text-sm'>
+                            <span className='text-stone-400 font-light select-none'>Cordenada X:</span>
+                            <span className='text-stone-400 font-light'>0</span>
+                            <div className='h-[1rem] bg-stone-300 w-[2px] select-none'></div>
+                            <span className='text-stone-400 font-light select-none'>Cordenada Y:</span>
+                            <span className='text-stone-400 font-light'>0</span>
+                        </div>
+                    </div>
+
+
+                    <div className='flex flex-col mb-3'>
+                        <article>
+                            <h3 className='text-lg select-none'># Cliente: {filteredData[0].nome}</h3>
+                        </article>
+                        <div className='flex flex-row gap-2 items-center text-sm'>
+                            <span className='text-stone-400 font-light select-none'>ID:</span>
+                            <span className='text-stone-400 font-light select-none'>{filteredData[0].cliente_id}</span>
+                        </div>
+
+                        <div className='h-[1.5px] bg-stone-300 w-[50%] mt-2 mb-2'></div>
+
+                        <div className='flex flex-row gap-2 items-center text-sm'>
+                            <span className='text-stone-400 font-light select-none'>Cordenada X:</span>
+                            <span className='text-stone-400 font-light'>{filteredData[0].coordenada_x}</span>
+                            <div className='h-[1rem] bg-stone-300 w-[2px] select-none'></div>
+                            <span className='text-stone-400 font-light select-none'>Cordenada Y:</span>
+                            <span className='text-stone-400 font-light'>{filteredData[0].coordenada_y}</span>
+                        </div>
+                    </div>
+
+                    <div className='flex flex-row gap-3 items-center h-[5rem] mt-4'>
+                        <button className='bg-sky-500 text-stone-50 p-2 rounded-md w-[6rem] hover:bg-sky-300 transition-all' onClick={() => handleSendCalc(filteredData[0].coordenada_x, filteredData[0].coordenada_y)}>
+                            {!isLoading? 'Calcular' : <Spinner size="sm"/>}
+                        </button>
+                        <button className='bg-rose-500 text-stone-50 p-2 rounded-md w-[6rem] hover:bg-rose-300 transition-all' onClick={handleCloseModal}>Fechar</button>
+                    </div>
+                </Modal.Body>
+            </>
+        )
+    }
+
 
     return (
         <>
+            <Modal show={showModal} centered onHide={handleCloseModal} size={visitationOrder ? 'xl' : 'lg'}>
+                <Container>
+                    <Row>
+                        <Col sm={visitationOrder ? 6 : 100} className='animate__animated animate__fadeIn'>
+                            <ModalData />
+                        </Col>
+
+                        {visitationOrder ? (
+                            <Col className='animate__animated animate__fadeIn'>
+                                <Modal.Header className='flex justify-center select-none'>
+                                    <Modal.Title className='text-lg flex flex-row gap-2 text-center items-center'>
+                                        <Truck />
+                                        Ordem de Visitação
+                                    </Modal.Title>
+                                </Modal.Header>
+
+                                <Modal.Body>
+                                    <ListGroup>
+                                        {visitationOrder.map((item, i) => (
+                                            <ListGroup.Item key={i} className={i ? 'flex flex-row gap-2 items-center text-stone-400' : 'flex flex-row gap-2 items-center text-stone-50'} active={!i}>
+                                                <span className={`${item.nome === 'EcoTech Solutions' && 'text-rose-500 animate-bounce font-bold'}`}>{i + 1}.</span>
+                                                <span className={`${item.nome === 'EcoTech Solutions' && 'text-rose-500 animate-bounce font-bold'}`}>{item.nome}</span>
+                                                <span className={`${item.nome === 'EcoTech Solutions' && 'text-rose-500 animate-bounce font-bold'}`}> | </span>
+                                                <span className={`${item.nome === 'EcoTech Solutions' && 'text-rose-500 animate-bounce font-bold'}`}>X: {item.coordenada_x}</span>
+                                                <span className={`${item.nome === 'EcoTech Solutions' && 'text-rose-500 animate-bounce font-bold'}`}>Y: {item.coordenada_y}</span>
+                                            </ListGroup.Item>
+                                        ))}
+                                    </ListGroup>
+                                </Modal.Body>
+                            </Col>
+                        ) : null}
+                    </Row>
+                </Container>
+            </Modal>
+
+            {/* ${item.nome === 'EcoTech Solutions' && 'text-rose-500'} */}
+
             <Table responsive>
-                <thead className='select-none'>
+                <thead className='select-none animate__animated animate__fadeInDown'>
                     <tr>
                         <th>
                             <div className='flex flex-row gap-2 items-center'>
@@ -449,7 +596,7 @@ function ClientsTable({ ...props }: TableProps) {
                     </tr>
                 </thead>
 
-                <tbody>
+                <tbody className='animate__animated animate__fadeIn'>
                     {props.data?.length === 0 ? (
                         <tr>
                             {!props.editMode ? (
@@ -553,9 +700,10 @@ function ClientsTable({ ...props }: TableProps) {
                                         </td>
                                         <td>
                                             <div className='flex flex-row gap-3 items-center h-[5rem]'>
-                                                <button className='bg-sky-500 text-stone-50 p-2  w-[6rem] rounded-md hover:bg-sky-300 transition-all' onClick={() => handleSetEdit(i)}>Editar</button>
+                                                <button className='bg-sky-500 border-[1px] text-stone-50 p-2  w-[6rem] rounded-md hover:bg-sky-300 transition-all' onClick={() => handleSetEdit(i)}>Editar</button>
+                                                <button className='bg-amber-500 border-[1px] text-stone-50 p-2  w-[6rem] rounded-md hover:bg-amber-300 transition-all' onClick={() => handleShowModal(cliente.cliente_id as never)}> Rotas </button>
                                                 <OverlayTrigger trigger="click" placement='top' overlay={popoverOverlay}>
-                                                    <button className='bg-rose-500 text-stone-50 p-2 w-[6rem] rounded-md hover:bg-rose-300 transition-all' onClick={() => handleShowPopover(cliente.cliente_id as never)}>Excluir</button>
+                                                    <button className='border-rose-500 border-[1px] text-rose-500 p-2 w-[6rem] rounded-md hover:border-rose-300 hover:text-rose-300 transition-all' onClick={() => handleShowPopover(cliente.cliente_id as never)}>Excluir</button>
                                                 </OverlayTrigger>
                                             </div>
                                         </td>
